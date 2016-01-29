@@ -1,0 +1,240 @@
+// JavaScript Document
+
+<!--
+var portWidthAtLastSet = 0;
+var portHeightAtLastSet = 0;
+
+var viewportwidth = 0;
+var viewportheight = 0;
+
+var pixelwidth = 20;
+var pixelcount = 0;
+var required = 0;
+
+// the more standards compliant browsers (mozilla/netscape/opera/IE7) use window.innerWidth and window.innerHeight
+
+function init()
+{
+	testForChange(); // Set size of window
+	controlPixels(); // Populate the empty window
+	colourTicker();	 // Start the colour changing
+}
+
+function testForChange()
+{
+	if (typeof window.innerWidth != 'undefined')
+	{
+		viewportwidth = window.innerWidth,
+		viewportheight = window.innerHeight
+	}
+	
+	// IE6 in standards compliant mode (i.e. with a valid doctype as the first line in the document)
+	
+	else if (typeof document.documentElement != 'undefined'
+	 && typeof document.documentElement.clientWidth !=
+	 'undefined' && document.documentElement.clientWidth != 0)
+	{
+	   viewportwidth = document.documentElement.clientWidth,
+	   viewportheight = document.documentElement.clientHeight
+	}
+	 
+	// older versions of IE
+	else
+	{
+		viewportwidth = document.getElementsByTagName('body')[0].clientWidth,
+		viewportheight = document.getElementsByTagName('body')[0].clientHeight
+	}
+	
+	//alert('Your viewport width is '+viewportwidth+' x '+viewportheight);
+	
+	if(viewportwidth!=portWidthAtLastSet || viewportheight!=portHeightAtLastSet)
+	{
+		setsize();
+		controlPixels(); 
+	}
+}
+
+function requiredPixels()
+{
+	var horizcount = Math.floor(viewportwidth / pixelwidth);
+	var vertcount = Math.floor(viewportheight / pixelwidth);
+	return horizcount * vertcount;
+}
+
+function setsize()
+{
+	document.getElementById('wrapper').style.width = viewportwidth+"px";
+	document.getElementById('wrapper').style.height = viewportheight+"px";
+	
+	portWidthAtLastSet = viewportwidth;
+	portHeightAtLastSet = viewportheight;
+}
+
+var ticks = 0;
+
+function colourTicker()
+{
+	var randomnumber = Math.floor(Math.random()*pixelcount);
+	
+	if(ticks++ > 10)
+	{
+		testForChange();
+		ticks = 0;
+	}
+	
+	var divToBeChanged = document.getElementById('div'+randomnumber);
+	if(divToBeChanged != null)
+		divToBeChanged.style.backgroundColor = randomHex();
+	t = setTimeout("colourTicker();",8);
+}
+
+function randomHex()
+{
+	var num = Math.floor(Math.random()*7);
+	var hinum = num+1;
+	if(hinum == 16)
+		hinum = 15;
+	
+	num = Math.round((num/100) * yperc);
+	hinum = Math.round((hinum/100) * xperc);
+	
+	var r = hinum.toString(16);
+	var gb = num.toString(16);
+	
+	if(colourOrder == 0)
+		var colourhex = '#'+gb+gb+'00'+r+r;
+	else if(colourOrder == 1)
+		var colourhex = '#'+r+r+'00'+gb+gb;
+	else if(colourOrder == 2)
+		var colourhex = '#'+gb+gb+r+r+'00';
+	else if(colourOrder == 3)
+		var colourhex = '#'+r+r+gb+gb+'00';
+	else if(colourOrder == 4)
+		var colourhex = '#00'+r+r+gb+gb;
+	else if(colourOrder == 5)
+		var colourhex = '#00'+gb+gb+r+r;
+	
+	return colourhex;
+}
+
+function controlPixels()
+{
+	required = requiredPixels();
+	
+	if(pixelcount < required)
+		populate();
+	if(pixelcount > required)
+		cull();
+}
+
+function populate()
+{
+	var wrapper = document.getElementById('wrapper');
+
+	var i = 0;
+	for(i=pixelcount; i < required; i++)
+	{
+		// Shape Cell
+		var newdiv = document.createElement('div');
+	
+		newdiv.setAttribute('class', 'pixel');  // Mozilla version
+		newdiv.setAttribute('className', 'pixel'); // IE version
+		newdiv.id = 'div'+i;
+		wrapper.appendChild(newdiv);
+	}
+	
+	pixelcount = required;
+	//alert("Populated to "+pixelcount);
+}
+
+function cull()
+{
+
+	var i = 0;
+	var wrapper = document.getElementById('wrapper');
+	
+	for(i=required; i < pixelcount; i++)
+	{
+		var doomeddiv = document.getElementById('div'+i);
+		wrapper.removeChild(doomeddiv);
+	}
+	
+	pixelcount = required;
+	//alert("Culled to " + pixelcount);
+}
+
+
+// Detect if the browser is IE or not.
+// If it is not IE, we assume that the browser is NS.
+var IE = document.all?true:false
+
+// If NS -- that is, !IE -- then set up for mouse capture
+if (!IE) document.captureEvents(Event.MOUSEMOVE)
+
+// Set-up to use getMouseXY function onMouseMove
+document.onmousemove = getMouseXY;
+
+// Temporary variables to hold mouse x-y pos.s
+var tempX = 0 // X is left-right
+var tempY = 0 // Y is up-down
+var xperc = 50;
+var yperc = 50;
+
+// Main function to retrieve mouse x-y pos.s
+function getMouseXY(e)
+{
+	if (IE)
+	{ // grab the x-y pos.s if browser is IE
+    	tempX = event.clientX + document.body.scrollLeft
+    	tempY = event.clientY + document.body.scrollTop
+  	}
+	else
+	{  // grab the x-y pos.s if browser is NS
+    	tempX = e.pageX
+    	tempY = e.pageY
+  	}  
+	
+	// catch possible negative values in NS4
+	if (tempX < 0){tempX = 0}
+	if (tempY < 0){tempY = 0} 
+	  
+	// Calculate percentage
+	xperc = Math.round((tempX / viewportwidth)*100);
+	yperc = Math.round((tempY / viewportheight)*100);
+	
+	// Flip percentage so toward centre is more intense
+	if(xperc > 50)
+		xperc = 50 - (xperc - 50);
+	xperc = xperc * 2;
+	
+	if(yperc > 50)
+		yperc = 50 - (yperc - 50);
+	yperc = yperc * 2;
+	
+	if(xperc > 100)
+		xperc = 100;
+	if(yperc > 100)
+		yperc = 100;
+	  
+	// show the position values in the form named Show
+	// in the text fields named MouseX and MouseY
+	//document.Show.MouseX.value = xperc+"%";
+	//document.Show.MouseY.value = yperc+"%";
+
+	return true
+}
+
+
+if (!IE) document.captureEvents(Event.MOUSECLICK)
+document.onmouseup = cycleColourOrder;
+var colourOrder = 0;
+
+function cycleColourOrder()
+{
+	colourOrder++;
+	if(colourOrder > 5) { colourOrder = 0 };
+	
+	//document.Show.ColourOrder.value = colourOrder;
+}
+
+//-->

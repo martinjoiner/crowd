@@ -1,0 +1,64 @@
+/* CSS Document */
+
+body{
+	margin: 0;
+	padding: 0;
+	border: 0;
+	background-color: #000;
+	font-size: 14px;
+	font-family: Arial, Helvetica, sans-serif;
+	color: #333;
+}
+
+#wrapper{
+	overflow: hidden;
+	width: 1px;
+	height: 1px;
+}
+
+.pixel{
+	float: left;
+	width: 20px;
+	height: 20px;
+	border-radius: 50%;
+}
+
+#primepointer{
+	background-color: #FFFF00;
+	width: 30px;
+	height: 30px;
+	color: #FF0000;
+	position: absolute;
+}
+
+.human{
+	float: left;
+	color: #FFF;
+	border: 1px solid #555;
+	position: absolute;
+	font-size: 8px;
+	box-shadow: 0 1px 8px rgba(0,0,0,0.6);
+	border-radius: 50%;
+}
+
+
+
+/* -------------- Instruction block in top-left ------------- */
+/* ---------------------------------------------------------- */
+
+#instructions{
+	position: absolute;
+	top: 5px;
+	left: 5px;
+	float: left;
+	width: 300px;
+	padding: 5px;
+	color: #CCC;
+	line-height: 1.5em;
+	background-color: rgba(0,0,0,.6); 
+	border-radius: 10px;
+}
+
+#instructions h2{
+	margin-top: 0;
+}
