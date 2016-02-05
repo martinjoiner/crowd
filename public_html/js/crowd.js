@@ -2,40 +2,134 @@
 var portWidthAtLastSet = 0;
 var portHeightAtLastSet = 0;
 
-var viewportWidth = 800;
-var viewportheight = 600;
+viewportWidth = 800;
+viewportHeight = 600;
 
 var pixelwidth = 20;
 var pixelcount = 0;
 var required = 0;
 
-/**
- * Global property to store the array of window.humans
- *
- * @type {array}
- */
-window.humans = new Array();
-
 
 
 /**
- * Like the auto-increment function on databases this returns the next available ID 
- * (Note: HTML IDs must not begin with a number)
+ * Debug and development function for creating a marker
  *
- * @return {integer} 
+ * @param {integer} x
+ * @param {integer} y
+ *
  */
-function assignMeAnID(){
-	var humanCount = window.humans.length++;
-	var divName = 'd' + String(humanCount)
-	window.humans[humanCount] = divName;
-	return divName;	
+function dropMarker(x,y,textContent){
+
+	var div, text;
+	div = document.createElement('div');
+	text = document.createTextNode(textContent);
+
+	div.style.width = "20px";
+	div.style.height = "10px";
+	div.style.cssFloat = "left";
+	div.style.color = "#000000";
+	div.style.backgroundColor = "#FFFF00";
+	div.style.border = "1px solid #888888";
+	div.style.position = "absolute";
+	div.style.fontFamily = "arial";
+	div.style.fontSize = "9px";
+	div.style.borderRadius = "2px";
+	
+	div.appendChild(text);
+	
+	div.style.left = x+"px";
+	div.style.top = y+"px";
+	
+	var wrapperdiv = document.getElementById('wrapper');
+	if(wrapperdiv != null){
+		wrapperdiv.appendChild(div);
+	}
+}
+
+
+
+/**
+ * Returns random number between 2 limits
+ *
+ * @param {number} min
+ * @param {number} max
+ * @param {number} interval - Optional interval defaults to 1
+ */
+function random( min, max, interval ){
+    if( typeof(interval) === 'undefined' ){
+    	interval = 1;
+    }
+    var r = Math.floor(Math.random()*(max-min+interval)/interval);
+    return r*interval+min;
 }
 
 
 
 
+
+/* ------------------------------------------------------- Class Definitions ------------------------------------------------------------- */
+/* --------------------------------------------------------------------------------------------------------------------------------------- */
+
+
+/**
+ * Crowd class: A crowd has many humans
+ */
+function Crowd(){
+	this.humans = [];
+}
+
+
+/**
+ * Method on Crowd Class
+ */
+Crowd.prototype.addHuman = function(x, y){
+	this.humans.push( new Human(x,y) );
+};
+
+
+/**
+ * Method on Crowd Class
+ *
+ * @return {integer} Number of humans in the crowd
+ */
+Crowd.prototype.countHumans = function(){
+	return this.humans.length;
+};
+
+
+/**
+ * Method on Crowd class: Like the auto-increment function on databases this returns the next available ID 
+ * Note: HTML IDs must not begin with a number so the letter 'd' is prepended
+ *
+ * @return {integer} 
+ */
+Crowd.prototype.assignMeAnID = function(){
+	var newID = this.countHumans() + 1;
+	return 'd' + String(newID);
+};
+
+
+/**
+ * Method on Crowd class: Searches crowd for human with matching ID
+ *
+ * @param {string} searchID 
+ *
+ * @return {Human} object of class Human
+ */
+Crowd.prototype.getHumanById = function( searchID ){
+	for( var i = 0, iLimit = this.humans.length; i < iLimit; i++ ){
+		if( this.humans[i].id === searchID ){
+			return this.humans[i];
+		}
+	}
+}
+
+
+
+
+
 /**	
- * Destination Marker class
+ * DestinationMarker (for debugging, visualises where a human is heading towards)
  *
  * @param {object} parentObj
  */
@@ -62,42 +156,14 @@ function DestinationMarker(parentObj){
 	div.style.left = parentObj.destinationX+"px";
 	div.style.top = parentObj.destinationY+"px";
 	
-	/*
-	var wrapperdiv = document.getElementById('wrapper');
-	if(wrapperdiv != null)
-		wrapperdiv.appendChild(div);
-	*/	
-}
-
-
-
-
-function dropMarker(x,y,textContent)
-{
-	var div, text;
-	div = document.createElement('div');
-	text = document.createTextNode(textContent);
-
-	div.style.width = "20px";
-	div.style.height = "10px";
-	div.style.cssFloat = "left";
-	div.style.color = "#000000";
-	div.style.backgroundColor = "#FFFF00";
-	div.style.border = "1px solid #888888";
-	div.style.position = "absolute";
-	div.style.fontFamily = "arial";
-	div.style.fontSize = "9px";
-	div.style.borderRadius = "2px";
-	
-	div.appendChild(text);
-	
-	div.style.left = x+"px";
-	div.style.top = y+"px";
 	
 	var wrapperdiv = document.getElementById('wrapper');
 	if(wrapperdiv != null)
 		wrapperdiv.appendChild(div);
+	
 }
+
+
 
 
 
@@ -109,132 +175,199 @@ function dropMarker(x,y,textContent)
  */
 function Human(x,y){
 
-	this.name = '';
+	// Get an ID from the crowd
+	this.id = crowd.assignMeAnID(); 
 	
-	var p, text;
-	p = document.createElement('div');
-	text = document.createTextNode("");
+	// History is an array of the last 8 locations
+	this.history = [];
+	this.historyPointer = 0;
 	
-	// Personality Traits
-	p.radius = Math.round((Math.random()*70)+15); // Whole number between 15 and 85
-	p.speed = Math.round((Math.random()*5)+8); // Whole number between 8 and 13
+	// Personality Traits, some humans are bit fatter, some move a litle faster
+	this.radius = random(15, 85);
+	this.speed = random(8, 13); 
+
+	// Boolean 
+	this.isWalking = false;
 	
-	p.style.width = String(p.radius*2)+"px";
-	p.style.height = String(p.radius*2)+"px";
-	p.style.backgroundColor = randomHex();
-	p.style.background = "-webkit-linear-gradient(top, "+randomHex()+", "+randomHex()+")";
+	// p is the DOM element that represents it
+	this.p = document.createElement('div');
+	this.p.id = this.id;
+	this.p.parent = this;
+	this.p.setAttribute("class", "human");
+	this.p.style.width = String(this.radius*2) + "px";
+	this.p.style.height = String(this.radius*2) + "px";
+	this.p.style.cursor = '-webkit-grab';
+	this.p.style.backgroundColor = randomHex();
+	this.p.style.background = randomLinearGradStyle();
 	
-	if(x)
-		p.destinationX = x;
-	else
-		p.destinationX = Math.floor((Math.random()*viewportWidth-100)+100);
+	if( typeof x === 'undefined' ){
+		// Plonk it in a random place
+		x = random(this.radius, viewportWidth - this.radius);
+	} 
 	
-	if(y)
-		p.destinationY = y;
-	else
-		p.destinationY = Math.floor((Math.random()*viewportheight-100)+100);
-	
-	p.x = p.destinationX;
-	p.y = p.destinationY;
-	
-	p.history = new Array;
-	p.historyPointer = 0;
-	p.vibrationCount = 0;
-	
-	p.id = assignMeAnID(); // Add me to the array of divs
-	p.setAttribute("class", "human");
-	p.appendChild(text); // A text node on the div mainly for debugging purposes 
-	
-	p.walking = false;
+	if( typeof y === 'undefined' ){
+		// Plonk it in a random place
+		y = random(this.radius, viewportHeight - this.radius); 
+	} 
+		
+	this.x = this.destinationX = x;
+	this.y = this.destinationY = y;
 	
 	var wrapperdiv = document.getElementById('wrapper');
-	if(wrapperdiv != null)
-		wrapperdiv.appendChild(p)
-
-	p.tracking = false;
-	p.addEventListener("mousemove", trackMouse, true);
-	p.addEventListener("mousedown", function(e){ 
-											 	p.tracking = true; 			// Referenced in the if statement of the mousemove listener
-											 	console.log("Tracking "+this.id); 		
-											 	wrapperdiv.appendChild(p);  // Makes it pop to the foreground effectively
-											 }, false);
-	p.addEventListener("mouseup", function(e){ 
-										   		p.tracking = false; 		// Referenced in the if statement of the mousemove listener
-												console.log("Not Tracking");		// Debug alert
-											}, false);
-	
-	p.addEventListener('dblclick', function(){ 
-												new Human(this.x,this.y);
-
-											}, false);
-	
-	new DestinationMarker(p);
-	
-	p.setPosition = function(){
-		//alert(this.id +" is setting it's own position");
-		this.style.left = String(this.x - this.radius) + "px";
-		this.style.top = String(this.y - this.radius) + "px";
-		return true;
+	if( wrapperdiv != null ){
+		wrapperdiv.appendChild(this.p);
 	}
+
+	// Boolean to define if it is following the mouse cursor (being dragged)
+	this.isTrackingMouse = false;
+
+	this.p.addEventListener("mousemove", function(e){ 
+		this.parent.trackMouse();
+	}, true);
+
+	this.p.addEventListener("mousedown", function(e){ 
+	 	this.parent.isTrackingMouse = true; 		// Referenced in the if statement of the mousemove listener
+	 	this.style.cursor = '-webkit-grabbing';
+	 	this.style.zIndex = 1000;		
+	 }, false);
+
+	this.p.addEventListener("mouseup", function(e){ 
+   		this.parent.isTrackingMouse = false; 		// Referenced in the if statement of the mousemove listener
+   		this.style.cursor = '-webkit-grab';
+   		this.style.zIndex = null;
+	}, false);
 	
-	p.setPosition();
+	// When clicked, instruct the crowd to birth another human in my location
+	this.p.addEventListener('dblclick', function(){ 
+		crowd.addHuman(this.parent.x,this.parent.y);
+	}, false);
+	
+}
+
+
+
+/**
+ * Method on Human class: 
+ *
+ */
+Human.prototype.updateMarkerPosition = function(){
+
+	this.p.style.transform = 'translate(' + String(this.x - this.radius) + 'px,' + String(this.y - this.radius) + 'px)';
+}
+
+
+
+/**
+ * Method on Human class: 
+ *
+ */
+Human.prototype.trackMouse = function(){  
+
+	if(this.isTrackingMouse){
+
+		this.x = this.destinationX = Math.round(tempX);
+		this.y = this.destinationY = Math.round(tempY);
+
+		this.updateMarkerPosition();
+	}
+}
+
+
+
+// Should we make the element marker separate to the human object?
+HumanMarker = function(){
+
+}
+
+
+
+/**
+ * Method on Human class
+ */
+Human.prototype.recordHistory = function(){
+	this.history[this.historyPointer] = String(this.x) + "," + String(this.y); // x,y values stored as string
+	this.historyPointer++;
+	if(this.historyPointer > 8){
+		this.historyPointer = 0;
+	}
+}
+
+
+
+/**
+ * Method on Human class: Every object has a destination position and an actual position
+ * this function moves the object toward it's destination one little increment at a time
+ */
+Human.prototype.progressToDestination = function(){
+
+	var xDifference = this.destinationX - this.x;
+	var fractionOfXDiff = Math.round(xDifference / this.speed);
+	
+	var yDifference = this.destinationY - this.y;
+	var fractionOfYDiff = Math.round(yDifference / this.speed);
+	
+	this.x = this.x + fractionOfXDiff;
+	this.y = this.y + fractionOfYDiff;
+	
+	this.updateMarkerPosition();
+	
+	if(this.x == this.destinationX && this.y == this.destinationY){
+		this.isWalking = false;
+	} else{
+		this.isWalking = true;
+	}
+
+	this.recordHistory();
 }
 
 
 
 
 /**
+ * Method on Human class: Seek a better position to stand
  *
  */
-function recordHistory(sender){
-	sender.history[sender.historyPointer] = String(sender.x) + "," + String(sender.y); // x,y values stored as string
-	sender.historyPointer++;
-	if(sender.historyPointer > 8){
-		sender.historyPointer = 0;
-	}
-}
+Human.prototype.shuffle = function(){
 
+	if( this.isTrackingMouse ){
+		return;
+	}
+
+	// Ask how close my nearest neighbour is and at what angle they are
+	var nNeighbour = assessPosition(this.id, this.x, this.y);
+	
+	// Is there a place within a few steps in the opposite direction that is at least 10% less claustrophibic?
+	var betterPosition = surveyPath(this.id, this.destinationX, this.destinationY, nNeighbour.angle, nNeighbour.distance);
+
+	this.destinationX = betterPosition.x;
+	this.destinationY = betterPosition.y;
+	
+	//this.p.innerHTML = "ID: " + this.id + 
+		"<br>Nearest ID: " + nNeighbour.id + 
+		"<br>Distance: " + nNeighbour.distance + 
+		"<br>Current: {" + this.x + "," + this.y + "}" +
+		"<br>Destination: {" + this.destinationX + "," + this.destinationY + "}" +
+		"<br>Better: {" + betterPosition.x + "," + betterPosition.y + "}" + 
+		"<br>Speed: " + this.speed;
+} 
+
+
+
+
+
+
+
+/* ----------------------------------------------------- Helper Functions ----------------------------------------------------------------- */
+/* ---------------------------------------------------------------------------------------------------------------------------------------- */
 
 
 /**
+ * Debug and development function 
+ * Finds and visualises the most isolated region of the viewport (ie. the prime location) 
  *
  */
-function progressToDestination(senderId){
-	var sender = document.getElementById(senderId);
-	// Every object has a destination position and an actual position
-	// this function moves the object toward it's destination one little increment at a time
-	var xDifference = sender.destinationX - sender.x;
-	var fractionOfXDiff = Math.round(xDifference/sender.speed);
-	
-	var yDifference = sender.destinationY - sender.y;
-	var fractionOfYDiff = Math.round(yDifference/sender.speed);
-	
-	sender.x = sender.x + fractionOfXDiff;
-	sender.y = sender.y + fractionOfYDiff;
-	
-	sender.setPosition();
-	
-	/*
-	var marker = document.getElementById(senderId+"marker");
-	marker.style.left = sender.destinationX + "px";
-	marker.style.top = sender.destinationY + "px";
-	*/
-	
-	if(sender.x == sender.destinationX && sender.y == sender.destinationY)
-		sender.walking = false;
-	else
-	{
-		sender.walking = true;
-		//setTimeout("progressToDestination('"+senderId+"')",40);
-	}
-	recordHistory(sender);
-}
+function indicatePrimeLocation(){
 
-var moverNominated = false;
-var nominatedMoverId; // a Global variable to say who is moving to the best place
-
-function indicatePrimeLocation(sender)
-{
 	var pointer = document.getElementById('primepointer');
 	var bestScore = 0;
 	var bestX = 10;
@@ -242,11 +375,12 @@ function indicatePrimeLocation(sender)
 	var assess;
 	var neighbourId;
 
+	// Iterate over the whole viewport in 10 pixel leaps, looking for the most isolated location
 	for(var i = 0; i < viewportWidth-30; i=i+10)
 	{
-		for(var n = 0; n < viewportheight-30; n=n+10)
+		for(var n = 0; n < viewportHeight-30; n=n+10)
 		{
-			assess = nearestNeighbour('NANA',i,n);
+			assess = assessPosition('NANA',i,n);
 			if(bestScore < assess.distance)
 			{
 				bestScore = assess.distance;
@@ -257,28 +391,9 @@ function indicatePrimeLocation(sender)
 		}
 	}
 	
-	/*
-	bestX = 200;
-	bestY = 400;
-	*/
-	
 	pointer.style.left = bestX+"px";
 	pointer.style.top = bestY+"px";
 	pointer.innerHTML = bestScore+"("+neighbourId+")";
-}
-
-function trackMouse(){  
-	//console.log(this.id);
-	if(this.tracking)
-	{
-		this.x = Math.round(tempX);
-		this.y = Math.round(tempY);
-		
-		this.destinationX = this.x;
-		this.destinationY = this.y;
-		
-		sender.setPosition();
-	}
 }
 
 
@@ -299,16 +414,29 @@ function magnitude(xNum){
 
 
 
-
-function distance(x1,y1,x2,y2){
+/**
+ * Calculated the distance between 2 points
+ */
+function distance( x1, y1, x2, y2 ){
 	var xDifference = x1 - x2;
 	var yDifference = y1 - y2;
 	var hyp = Math.sqrt((xDifference*xDifference) + (yDifference*yDifference));
 	return Math.round(hyp);
 }
 
-function angle(x1,y1,x2,y2)
-{
+
+
+/**
+ * Returns the angle of direction that xy2 is to xy1
+ *
+ * @param {integer} x1 X coordinate of first point 
+ * @param {integer} y1 Y coordinate of first point 
+ * @param {integer} x1 X coordinate of second point 
+ * @param {integer} y1 Y coordinate of second point 
+ *
+ * @return {integer} Number of degrees of angle
+ */
+function angle( x1, y1, x2, y2 ){
 	var xDifference = x1 - x2;
 	var yDifference = y1 - y2;
 	
@@ -318,77 +446,99 @@ function angle(x1,y1,x2,y2)
 	return d;
 }
 
-function nearestNeighbour(ignoreObjId,x,y)
-{
+
+
+/**
+ * Asseses a point on the floor to finds the nearest neighbour in the crowd
+ * 
+ * @param {string} ID of human to ignore 
+ *
+ * @return {object} Containing 'id', 'distance', 'angle'
+ */
+function assessPosition( humanIDToIgnore, x, y ){
+
 	// Find my nearest neighbour and report id, distance and angle
-	var nearest = 10000; // Start with a very high number by default and beat it
-	var nDistance;
-	var nAngle;
-	var nearestObjId;
-	var otherObj;
+	var nearest = 100000, // Start with a very high number by default and beat it
+		nDistance,
+		nAngle,
+		nearestHumanId,
+		otherHuman;
 	
-	for(var i = 0; i < window.humans.length; i++)
-	{
-		otherObj = document.getElementById(window.humans[i]);
-		if(otherObj.id != ignoreObjId)
-		{
-			nDistance = distance(x,y,otherObj.destinationX,otherObj.destinationY);
+	// Iterate over Humans in Crowd
+	for( var i = 0; i < crowd.countHumans(); i++ ){
+
+		otherHuman = crowd.humans[i];
+
+		// As long as the human is not myself
+		if( otherHuman.id != humanIDToIgnore ){
+
+			nDistance = distance( x, y, otherHuman.destinationX, otherHuman.destinationY );
 			
 			// Subtract their radius from the distance
-			nDistance = nDistance - otherObj.radius;
+			nDistance = nDistance - otherHuman.radius;
 			
-			if(nearest > nDistance)
-			{
+			if(nearest > nDistance){
 				nearest = nDistance;
-				nAngle = angle(x,y,otherObj.destinationX,otherObj.destinationY);
-				nearestObjId = otherObj.id;
+				nAngle = angle( x, y, otherHuman.destinationX, otherHuman.destinationY );
+				nearestHumanId = otherHuman.id;
 			}
 		}
 	}
 	
-	return {id : nearestObjId, distance : nearest, angle: nAngle};	
+	return { id: nearestHumanId, distance: nearest, angle: nAngle };	
 }
 
-function xyStep(x,y,xIncAmount,yIncAmount)
-{
+
+/**
+ * Takes xy coordinates, increments and returns
+ */
+function xyStep( x, y, xIncAmount, yIncAmount ){
 	var newX = x + xIncAmount;
 	var newY = y + yIncAmount;
 	return { x : newX, y : newY };	
 }
 
-function surveyPath(ignoreObjId,x,y,nAngle,distanceToBeat)
-{
+
+
+/**
+ * 
+ */
+function surveyPath( ignoreObjId, x, y, nAngle, distanceToBeat ){
+
 	// Keep taking virtual steps in various directions, evaluating that position until a position with a better store than yours is found
 
 	var improving;
-	var bestX = x; // By default the best position to be in is the one you are in (only move if it can be imrpoved upon
+	var bestX = x; // By default the best position to be in is the one you are in (only move if it can be imrpoved upon)
 	var bestY = y;
 	var currentScore;
-	var scores = [[1,2,3],[1,2,3],[1,2,3],[1,2,3],[1,2,3],[1,2,3],[1,2,3],[1,2,3]]; // Array to store the scores as each direction of travel is assessed
+
+	// Array to store the scores as each direction of travel is assessed
+	var scores = [ [1,2,3], [1,2,3], [1,2,3], [1,2,3], [1,2,3], [1,2,3], [1,2,3], [1,2,3] ]; 
 	
 	var testingX;
 	var testingY;
 	var xIncAmount;
 	var yIncAmount;
 	
+	var ignoreObj = crowd.getHumanById( ignoreObjId );
+
 	var toleranceMargin = 75; // Default average radius
-	
-	var ignoreObj = document.getElementById(ignoreObjId);
-	if(ignoreObj)
+	if( ignoreObj ){
 		toleranceMargin = ignoreObj.radius + 10;
+	}
 	
-	for(var i = 0; i < 7; i++) // Run through 4 times
-	{
-		switch(i)
-		{
-			case 0: xIncAmount = 0; yIncAmount = 2; break;
-			case 1: xIncAmount = 0; yIncAmount = -2; break;
-			case 2: xIncAmount = 2; yIncAmount = 0; break;
-			case 3: xIncAmount = -2; yIncAmount = 0; break;	
-			case 4: xIncAmount = 2; yIncAmount = 2; break;
-			case 5: xIncAmount = -2; yIncAmount = 2; break;	
-			case 6: xIncAmount = 2; yIncAmount = -2; break;
-			case 7: xIncAmount = -2; yIncAmount = -2; break;	
+	// Iterate through 8 directions
+	for(var i = 0; i < 8; i++){
+
+		switch(i){
+			case 0: xIncAmount =  0; yIncAmount =  2; break; // South
+			case 1: xIncAmount =  0; yIncAmount = -2; break; // North
+			case 2: xIncAmount =  2; yIncAmount =  0; break; // East
+			case 3: xIncAmount = -2; yIncAmount =  0; break; // West
+			case 4: xIncAmount =  2; yIncAmount =  2; break; // South-East
+			case 5: xIncAmount = -2; yIncAmount =  2; break; // South-West
+			case 6: xIncAmount =  2; yIncAmount = -2; break; // North-West
+			case 7: xIncAmount = -2; yIncAmount = -2; break; // North-East
 		}
 		
 		testingX = x;
@@ -396,37 +546,42 @@ function surveyPath(ignoreObjId,x,y,nAngle,distanceToBeat)
 		
 		improving = true;
 		
-		scores[i][0] = distanceToBeat; // Position 0 is distance to beat
+		scores[i][0] = distanceToBeat; // Element 0 is distance to beat
 		
-		while(improving)
-		{
-			//nextStep = step(bestX,bestY,nAngle);
+		while( improving ){
+
 			nextStep = xyStep(testingX,testingY,xIncAmount,yIncAmount);
-			evalNeighbour = nearestNeighbour(ignoreObjId,nextStep.x,nextStep.y); // Evaluate this position, ignoring myself as an object
-			if(nextStep.x < toleranceMargin || nextStep.x > viewportWidth-toleranceMargin || nextStep.y < toleranceMargin || nextStep.y > viewportheight-toleranceMargin)
+
+			evalNeighbour = assessPosition(ignoreObjId, nextStep.x, nextStep.y); // Evaluate this position, ignoring myself as an object
+
+			if(nextStep.x < toleranceMargin || nextStep.x > viewportWidth-toleranceMargin || nextStep.y < toleranceMargin || nextStep.y > viewportHeight-toleranceMargin)
 				improving = false;
-			if(scores[i][0] < evalNeighbour.distance) // We are looking for the largest distance
-			{
+
+			if(scores[i][0] < evalNeighbour.distance){ // We are looking for the largest distance
+			
 				// This is a better position to be in
 				scores[i][0] = evalNeighbour.distance;
 				scores[i][1] = nextStep.x; // Position 1 is best X value
 				scores[i][2] = nextStep.y; // Position 2 is best Y value
-				//alert("Better position found ("+evalNeighbour.distance+") at  "+String(nextStep.x)+","+String(nextStep.y));
-			}
-			else
-			{
+
+				//console.log( "Better position found (" + evalNeighbour.distance + ") at  " + String(nextStep.x) + "," + String(nextStep.y) );
+
+			} else {
 				improving = false;
 			}
+
 			testingX = nextStep.x;
 			testingY = nextStep.y;
 		}
 	}
 	
 	currentScore = distanceToBeat;
-	for(var i = 0; i < 7; i++) // Run through 4 times
-	{
-		if((currentScore*1.1) < scores[i][0]) // The *1.1 is to stop the objects vibrating between 2 very close positions with no significant advantage to either position
-		{
+
+	// Iterate over the 8 directions to work out which gives the biggest win
+	for( i = 0; i < 8; i++ ){
+
+		// The *1.1 is to stop the objects vibrating between 2 very close positions with no significant advantage to either position
+		if( (currentScore*1.1) < scores[i][0] ){ 
 			currentScore = scores[i][0];
 			bestX = scores[i][1];
 			bestY = scores[i][2];
@@ -439,10 +594,10 @@ function surveyPath(ignoreObjId,x,y,nAngle,distanceToBeat)
 		bestX = viewportWidth-toleranceMargin;
 	if(bestY < toleranceMargin)
 		bestY = toleranceMargin;
-	if(bestY > viewportheight-toleranceMargin)
-		bestY = viewportheight-toleranceMargin;
+	if(bestY > viewportHeight-toleranceMargin)
+		bestY = viewportHeight-toleranceMargin;
 
-	return { x : bestX, y : bestY };
+	return { x: bestX, y: bestY };
 }
 
 
@@ -456,33 +611,6 @@ function isInt(n){
    return n % 1 === 0;
 }
 
-function shuffle(myObj)
-{
-	// Ask how close my nearest neighbour is and at what angle they are
-	var nNeighbour = nearestNeighbour(myObj.id,myObj.x,myObj.y);
-	
-	// Is there a place within a few steps in the opposite direction that is at least 10% less claustrophibic?
-	var betterPosition = surveyPath(myObj.id,myObj.destinationX,myObj.destinationY,nNeighbour.angle,nNeighbour.distance);
-	
-	if(!myObj.tracking)
-	{
-		myObj.destinationX = betterPosition.x;
-		myObj.destinationY = betterPosition.y;
-	}
-	
-	//myObj.innerHTML = "I am: "+myObj.id+"<br><br>Nearest ID: "+nNeighbour.id+"<br>Distance: "+nNeighbour.distance+"<br>Need to move x:"+String(betterPosition.x)+" y:"+String(betterPosition.y)+"<br>Speed:"+String(myObj.speed);
-} 
-
-
-
-document.addEventListener("mousemove", showCoords, false);
-
-function showCoords(){
-	//console.log(tempX+", "+tempY); 
-	var wrapperdiv = document.getElementById('wrapper');
-	//console.log(window.humans.length);
-}
-
 
 
 
@@ -490,11 +618,11 @@ function showCoords(){
 /**
  *
  */
-function testForChange()
-{
+function testForChange(){
+
 	if (typeof window.innerWidth != 'undefined'){
 		viewportWidth = window.innerWidth,
-		viewportheight = window.innerHeight
+		viewportHeight = window.innerHeight
 	}
 	
 	// IE6 in standards compliant mode (i.e. with a valid doctype as the first line in the document)
@@ -504,21 +632,20 @@ function testForChange()
 	 'undefined' && document.documentElement.clientWidth != 0)
 	{
 	   viewportWidth = document.documentElement.clientWidth,
-	   viewportheight = document.documentElement.clientHeight
+	   viewportHeight = document.documentElement.clientHeight
 	}
 	 
 	// older versions of IE
 	else
 	{
 		viewportWidth = document.getElementsByTagName('body')[0].clientWidth,
-		viewportheight = document.getElementsByTagName('body')[0].clientHeight
+		viewportHeight = document.getElementsByTagName('body')[0].clientHeight
 	}
 	
-	//alert('Your viewport width is '+viewportWidth+' x '+viewportheight);
+	//alert('Your viewport width is '+viewportWidth+' x '+viewportHeight);
 	
-	if(viewportWidth!=portWidthAtLastSet || viewportheight!=portHeightAtLastSet)
-	{
-		setsize();
+	if( viewportWidth != portWidthAtLastSet || viewportHeight != portHeightAtLastSet ){
+		setViewportSize();
 		controlPixels(); 
 	}
 }
@@ -533,52 +660,62 @@ function testForChange()
  */
 function requiredPixels(){
 	var horizcount = Math.floor(viewportWidth / pixelwidth);
-	var vertcount = Math.floor(viewportheight / pixelwidth);
+	var vertcount = Math.floor(viewportHeight / pixelwidth);
 	return horizcount * vertcount;
 }
 
-function setsize()
-{
+
+
+/**
+ * Updates the width of the wrapper element
+ */
+function setViewportSize(){
 	document.getElementById('wrapper').style.width = viewportWidth+"px";
-	document.getElementById('wrapper').style.height = viewportheight+"px";
+	document.getElementById('wrapper').style.height = viewportHeight+"px";
 	
 	portWidthAtLastSet = viewportWidth;
-	portHeightAtLastSet = viewportheight;
+	portHeightAtLastSet = viewportHeight;
 }
 
-var ticks = 0;
 
-function colourTicker()
-{
+
+/**
+ * Tick count that is used to delay certain tasks for occasional execution
+ */
+ticks = 0;
+
+
+
+/**
+ * Self-calling function that simulates game time
+ */
+function ticker(){
 	var randomnumber = Math.floor(Math.random()*pixelcount);
 	
-	if(ticks++ > 10)
-	{
+	if(ticks++ > 10){
 		testForChange();
 		ticks = 0;
 	}
 	
 	var divToBeChanged = document.getElementById('div'+randomnumber);
-	if(divToBeChanged != null)
+	if( divToBeChanged != null ){
 		divToBeChanged.style.backgroundColor = randomHex();
+	}
 	
-	var wrapperdiv = document.getElementById('wrapper');
-	for(var i = 0; i < window.humans.length; i++)
-	{
-		progressToDestination(window.humans[i]);
-		shuffle(document.getElementById(window.humans[i]));
+	for(var i = 0; i < crowd.countHumans(); i++){
+		crowd.humans[i].progressToDestination();
+		crowd.humans[i].shuffle();
 	}
 
-	t = setTimeout("colourTicker();",40); // Should be 40 for normal running
+	t = setTimeout("ticker();", 40); // Should be 40 for normal running
 }
 
 
 
-
 /**
- * Uses the current cursor position to generate a semi-random / weighted-random colour hex
+ * Uses the current cursor position to generate a semi-random / weighted-random color hex
  *
- * @return {string} colour hex code
+ * @return {string} color hex code
  */
 function randomHex(){
 
@@ -595,25 +732,64 @@ function randomHex(){
 	var r = hinum.toString(16);
 	var gb = num.toString(16);
 	
-	if(colourOrder == 0)
-		var colourhex = '#'+gb+gb+'00'+r+r;
-	else if(colourOrder == 1)
-		var colourhex = '#'+r+r+'00'+gb+gb;
-	else if(colourOrder == 2)
-		var colourhex = '#'+gb+gb+r+r+'00';
-	else if(colourOrder == 3)
-		var colourhex = '#'+r+r+gb+gb+'00';
-	else if(colourOrder == 4)
-		var colourhex = '#00'+r+r+gb+gb;
-	else if(colourOrder == 5)
-		var colourhex = '#00'+gb+gb+r+r;
+	if(colorOrder == 0)
+		var colorhex = '#'+gb+gb+'00'+r+r;
+	else if(colorOrder == 1)
+		var colorhex = '#'+r+r+'00'+gb+gb;
+	else if(colorOrder == 2)
+		var colorhex = '#'+gb+gb+r+r+'00';
+	else if(colorOrder == 3)
+		var colorhex = '#'+r+r+gb+gb+'00';
+	else if(colorOrder == 4)
+		var colorhex = '#00'+r+r+gb+gb;
+	else if(colorOrder == 5)
+		var colorhex = '#00'+gb+gb+r+r;
 
-	return colourhex;
+	return colorhex;
 }
 
 
 
+/**
+ * Produced a linear gradient definition with the darker shade at the bottom
+ *
+ * @return {string}
+ */
+function randomLinearGradStyle(){
 
+	var hexA = randomHex(),
+		hexB = randomHex();
+
+	if( shadeFromHex(hexA) > shadeFromHex(hexB) ){
+		return "linear-gradient(to bottom, " + hexA + ", " + hexB + ")";
+	} else {
+		return "linear-gradient(to bottom, " + hexB + ", " + hexA + ")";
+	}
+	
+}
+
+
+
+/**
+ * Turns a hex color code into a shade value (aka lightness level)
+ *
+ * @return {integer} Value between 0 - 256 representing shade
+ */
+function shadeFromHex( hexColorCode ){
+
+	total = parseInt( hexColorCode.substring(1,3), 16 ) +
+			parseInt( hexColorCode.substring(3,5), 16 ) +
+			parseInt( hexColorCode.substring(5,7), 16 );
+
+	return total / 3;
+}
+
+
+
+/**
+ * Controls the population of pixels by populating or culling
+ *
+ */
 function controlPixels(){
 	required = requiredPixels();
 	
@@ -623,8 +799,9 @@ function controlPixels(){
 		cull();
 }
 
-function populate()
-{
+
+
+function populate(){
 	var wrapper = document.getElementById('wrapper');
 
 	var i = 0;
@@ -643,20 +820,24 @@ function populate()
 }
 
 
+
+/**
+ * Removes the excess pixels, limiting it to a number 
+ *
+ */
 function cull(){
 
-	var i = 0;
 	var wrapper = document.getElementById('wrapper');
 	
-	for(i=required; i < pixelcount; i++){
+	for(var i=required; i < pixelcount; i++){
 		var doomedDiv = document.getElementById('div'+i);
 		wrapper.removeChild(doomedDiv);
 	}
 	
 	pixelcount = required;
 
-	//console.log("Culled to " + pixelcount);
 }
+
 
 
 // Detect if the browser is IE or not.
@@ -676,8 +857,8 @@ var xperc = 50;
 var yperc = 50;
 
 // Main function to retrieve mouse x-y pos.s
-function getMouseXY(e)
-{
+function getMouseXY(e){
+	
 	if (IE)
 	{ // grab the x-y pos.s if browser is IE
     	tempX = event.clientX + document.body.scrollLeft
@@ -695,7 +876,7 @@ function getMouseXY(e)
 	  
 	// Calculate percentage
 	xperc = Math.round((tempX / viewportWidth)*100);
-	yperc = Math.round((tempY / viewportheight)*100);
+	yperc = Math.round((tempY / viewportHeight)*100);
 	
 	// Flip percentage so toward centre is more intense
 	if(xperc > 50)
@@ -710,11 +891,6 @@ function getMouseXY(e)
 		xperc = 100;
 	if(yperc > 100)
 		yperc = 100;
-	  
-	// show the position values in the form named Show
-	// in the text fields named MouseX and MouseY
-	//document.Show.MouseX.value = xperc+"%";
-	//document.Show.MouseY.value = yperc+"%";
 
 	return true;
 }
@@ -723,27 +899,28 @@ function getMouseXY(e)
 
 
 /**
- * Determins which of 6 different arrangements are used to generate colours
- * Basically restricts random colours to be within a shade range
+ * Determins which of 6 different arrangements are used to generate colors
+ * Basically restricts random colors to be within a shade range
  *
  * @type {integer}
  */
-var colourOrder = 0;
+var colorOrder = 0;
 
 
 
 
 /**
- * Increments the colourOrder with every click, keeping it within range of 0 - 5
+ * Increments the colorOrder with every click, keeping it within range of 0 - 5
  */
 document.addEventListener('click', function(){
 
-	colourOrder++;
-	if(colourOrder > 5){ 
-		colourOrder = 0 
+	colorOrder++;
+	if(colorOrder > 5){ 
+		colorOrder = 0 
 	}
 
 });
+
 
 
 
@@ -753,13 +930,15 @@ document.addEventListener('click', function(){
  */
 (function(){
 
+	crowd = new Crowd();
+
 	testForChange(); // Set size of window
 	controlPixels(); // Populate the empty window
-	colourTicker();	 // Start the colour changing
+	ticker();	 // Start the ticker
 	
 	// Populate the stage with 16 Humans
 	for(i = 0; i < 16; i++){
-		new Human();
+		crowd.addHuman();
 	}
 
 })();

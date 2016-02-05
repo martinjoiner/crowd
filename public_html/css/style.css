@@ -11,9 +11,10 @@ body{
 }
 
 #wrapper{
+	position: absolute;
+	top: 0;
+	left: 0;
 	overflow: hidden;
-	width: 1px;
-	height: 1px;
 }
 
 .pixel{
@@ -32,11 +33,10 @@ body{
 }
 
 .human{
-	float: left;
 	color: #FFF;
 	border: 1px solid #555;
 	position: absolute;
-	font-size: 8px;
+	font-size: 10px;
 	box-shadow: 0 1px 8px rgba(0,0,0,0.6);
 	border-radius: 50%;
 }
