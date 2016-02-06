@@ -40,27 +40,10 @@ function dropMarker(x,y,textContent){
 	div.style.left = x+"px";
 	div.style.top = y+"px";
 	
-	var wrapperdiv = document.getElementById('wrapper');
+	var wrapperdiv = document.getElementById('crowd');
 	if(wrapperdiv != null){
 		wrapperdiv.appendChild(div);
 	}
-}
-
-
-
-/**
- * Returns random number between 2 limits
- *
- * @param {number} min
- * @param {number} max
- * @param {number} interval - Optional interval defaults to 1
- */
-function random( min, max, interval ){
-    if( typeof(interval) === 'undefined' ){
-    	interval = 1;
-    }
-    var r = Math.floor(Math.random()*(max-min+interval)/interval);
-    return r*interval+min;
 }
 
 
@@ -74,8 +57,9 @@ function random( min, max, interval ){
 /**
  * Crowd class: A crowd has many humans
  */
-function Crowd(){
+function Crowd( elemCrowdId ){
 	this.humans = [];
+	this.elemCrowd = document.getElementById( elemCrowdId );
 }
 
 
@@ -83,7 +67,7 @@ function Crowd(){
  * Method on Crowd Class
  */
 Crowd.prototype.addHuman = function(x, y){
-	this.humans.push( new Human(x,y) );
+	this.humans.push( new Human( this.elemCrowd, x, y ) );
 };
 
 
@@ -99,13 +83,13 @@ Crowd.prototype.countHumans = function(){
 
 /**
  * Method on Crowd class: Like the auto-increment function on databases this returns the next available ID 
- * Note: HTML IDs must not begin with a number so the letter 'd' is prepended
+ * Note: HTML IDs must not begin with a number so the letter 'h' is prepended
  *
  * @return {integer} 
  */
 Crowd.prototype.assignMeAnID = function(){
 	var newID = this.countHumans() + 1;
-	return 'd' + String(newID);
+	return 'h' + String(newID);
 };
 
 
@@ -153,11 +137,11 @@ function DestinationMarker(parentObj){
 	
 	div.appendChild(text);
 	
-	div.style.left = parentObj.destinationX+"px";
-	div.style.top = parentObj.destinationY+"px";
+	div.style.left = parentObj.destination.x + "px";
+	div.style.top = parentObj.destination.y + "px";
 	
 	
-	var wrapperdiv = document.getElementById('wrapper');
+	var wrapperdiv = document.getElementById('crowd');
 	if(wrapperdiv != null)
 		wrapperdiv.appendChild(div);
 	
@@ -170,10 +154,11 @@ function DestinationMarker(parentObj){
 /**
  * Human class
  *
+ * @param {object} The HTML element this human must append their marker to 
  * @param {integer} x the initial horizontal position 
  * @param {integer} y the initial vertical position 
  */
-function Human(x,y){
+function Human( elemCrowd, x, y ){
 
 	// Get an ID from the crowd
 	this.id = crowd.assignMeAnID(); 
@@ -199,6 +184,9 @@ function Human(x,y){
 	this.p.style.cursor = '-webkit-grab';
 	this.p.style.backgroundColor = randomHex();
 	this.p.style.background = randomLinearGradStyle();
+
+	// Attach the marker to the crowd element in the DOM
+	elemCrowd.appendChild(this.p);
 	
 	if( typeof x === 'undefined' ){
 		// Plonk it in a random place
@@ -210,13 +198,11 @@ function Human(x,y){
 		y = random(this.radius, viewportHeight - this.radius); 
 	} 
 		
-	this.x = this.destinationX = x;
-	this.y = this.destinationY = y;
-	
-	var wrapperdiv = document.getElementById('wrapper');
-	if( wrapperdiv != null ){
-		wrapperdiv.appendChild(this.p);
-	}
+	this.x = x;
+	this.y = y;
+
+	// Destination is the point the Human is moving towards
+	this.destination = new Point(x, y);
 
 	// Boolean to define if it is following the mouse cursor (being dragged)
 	this.isTrackingMouse = false;
@@ -265,8 +251,8 @@ Human.prototype.trackMouse = function(){
 
 	if(this.isTrackingMouse){
 
-		this.x = this.destinationX = Math.round(tempX);
-		this.y = this.destinationY = Math.round(tempY);
+		this.x = this.destination.x = Math.round(tempX);
+		this.y = this.destination.y = Math.round(tempY);
 
 		this.updateMarkerPosition();
 	}
@@ -300,10 +286,10 @@ Human.prototype.recordHistory = function(){
  */
 Human.prototype.progressToDestination = function(){
 
-	var xDifference = this.destinationX - this.x;
+	var xDifference = this.destination.x - this.x;
 	var fractionOfXDiff = Math.round(xDifference / this.speed);
 	
-	var yDifference = this.destinationY - this.y;
+	var yDifference = this.destination.y - this.y;
 	var fractionOfYDiff = Math.round(yDifference / this.speed);
 	
 	this.x = this.x + fractionOfXDiff;
@@ -311,9 +297,9 @@ Human.prototype.progressToDestination = function(){
 	
 	this.updateMarkerPosition();
 	
-	if(this.x == this.destinationX && this.y == this.destinationY){
+	if( this.x == this.destination.x && this.y == this.destination.y ){
 		this.isWalking = false;
-	} else{
+	} else {
 		this.isWalking = true;
 	}
 
@@ -334,24 +320,56 @@ Human.prototype.shuffle = function(){
 	}
 
 	// Ask how close my nearest neighbour is and at what angle they are
-	var nNeighbour = assessPosition(this.id, this.x, this.y);
+	var nNeighbour = assessPosition(this.id, new Point( this.x, this.y) );
 	
 	// Is there a place within a few steps in the opposite direction that is at least 10% less claustrophibic?
-	var betterPosition = surveyPath(this.id, this.destinationX, this.destinationY, nNeighbour.angle, nNeighbour.distance);
+	this.destination = surveyPaths(this.id, this.destination.x, this.destination.y, nNeighbour.distance);
 
-	this.destinationX = betterPosition.x;
-	this.destinationY = betterPosition.y;
-	
-	//this.p.innerHTML = "ID: " + this.id + 
+	/*
+	this.p.innerHTML = "ID: " + this.id + 
 		"<br>Nearest ID: " + nNeighbour.id + 
 		"<br>Distance: " + nNeighbour.distance + 
 		"<br>Current: {" + this.x + "," + this.y + "}" +
-		"<br>Destination: {" + this.destinationX + "," + this.destinationY + "}" +
-		"<br>Better: {" + betterPosition.x + "," + betterPosition.y + "}" + 
+		"<br>Destination: {" + this.destination.x + "," + this.destination.y + "}" +
 		"<br>Speed: " + this.speed;
+	*/
 } 
 
 
+
+/**
+ * A point is simply x,y coordinates wrapped up with a couple of methods added
+ *
+ * @param {integer} x coordinate
+ * @param {integer} y coordinate
+ */
+Point = function( x ,y ){
+	this.x = x;
+	this.y = y;
+}
+
+
+/**
+ * Method on Point class: Wrapper for the distance() function
+ *
+ * @param {object} otherPoint An instance of Point class
+ */
+Point.prototype.distanceTo = function( otherPoint ){
+	return distance( this, otherPoint );
+}
+
+
+/**
+ * Method on Point class: Wrapper for the angle() function
+ *
+ * @param {object} otherPoint An instance of Point class
+ */
+Point.prototype.angleTo = function( otherPoint ){
+	return angle( this, otherPoint );
+}
+
+
+// End of Class definitions
 
 
 
@@ -359,6 +377,26 @@ Human.prototype.shuffle = function(){
 
 /* ----------------------------------------------------- Helper Functions ----------------------------------------------------------------- */
 /* ---------------------------------------------------------------------------------------------------------------------------------------- */
+
+
+
+/**
+ * Returns random number between 2 limits
+ *
+ * @param {number} min
+ * @param {number} max
+ * @param {number} interval - Optional interval defaults to 1
+ *
+ * @return {number}
+ */
+function random( min, max, interval ){
+    if( typeof(interval) === 'undefined' ){
+    	interval = 1;
+    }
+    var r = Math.floor(Math.random()*(max-min+interval)/interval);
+    return r * interval + min;
+}
+
 
 
 /**
@@ -380,7 +418,7 @@ function indicatePrimeLocation(){
 	{
 		for(var n = 0; n < viewportHeight-30; n=n+10)
 		{
-			assess = assessPosition('NANA',i,n);
+			assess = assessPosition('NANA', new Point( i,n ) );
 			if(bestScore < assess.distance)
 			{
 				bestScore = assess.distance;
@@ -398,11 +436,12 @@ function indicatePrimeLocation(){
 
 
 
-
 /**
  * Returns the magnitude of a number
  *
  * @param {integer} xNum
+ *
+ * @return {integer}
  */
 function magnitude(xNum){
 	if(xNum < 0){
@@ -416,11 +455,16 @@ function magnitude(xNum){
 
 /**
  * Calculated the distance between 2 points
+ *
+ * @param {object} point1 An instance of Point class
+ * @param {object} point2 An instance of Point class
+ *
+ * @return {integer} 
  */
-function distance( x1, y1, x2, y2 ){
-	var xDifference = x1 - x2;
-	var yDifference = y1 - y2;
-	var hyp = Math.sqrt((xDifference*xDifference) + (yDifference*yDifference));
+function distance( point1, point2 ){
+	var xDifference = point1.x - point2.x;
+	var yDifference = point1.y - point2.y;
+	var hyp = Math.sqrt( Math.pow(xDifference, 2) + Math.pow(yDifference, 2) );
 	return Math.round(hyp);
 }
 
@@ -429,16 +473,14 @@ function distance( x1, y1, x2, y2 ){
 /**
  * Returns the angle of direction that xy2 is to xy1
  *
- * @param {integer} x1 X coordinate of first point 
- * @param {integer} y1 Y coordinate of first point 
- * @param {integer} x1 X coordinate of second point 
- * @param {integer} y1 Y coordinate of second point 
+ * @param {object} point1 An instance of Point class
+ * @param {object} point2 An instance of Point class
  *
  * @return {integer} Number of degrees of angle
  */
-function angle( x1, y1, x2, y2 ){
-	var xDifference = x1 - x2;
-	var yDifference = y1 - y2;
+function angle( point1, point2 ){
+	var xDifference = point1.x - point2.x;
+	var yDifference = point1.y - point2.y;
 	
 	var r = Math.atan2(xDifference,yDifference)
 	var d = r * 180 / Math.PI
@@ -452,10 +494,11 @@ function angle( x1, y1, x2, y2 ){
  * Asseses a point on the floor to finds the nearest neighbour in the crowd
  * 
  * @param {string} ID of human to ignore 
+ * @param {object} point An instance of Point class
  *
  * @return {object} Containing 'id', 'distance', 'angle'
  */
-function assessPosition( humanIDToIgnore, x, y ){
+function assessPosition( humanIDToIgnore, point ){
 
 	// Find my nearest neighbour and report id, distance and angle
 	var nearest = 100000, // Start with a very high number by default and beat it
@@ -472,14 +515,14 @@ function assessPosition( humanIDToIgnore, x, y ){
 		// As long as the human is not myself
 		if( otherHuman.id != humanIDToIgnore ){
 
-			nDistance = distance( x, y, otherHuman.destinationX, otherHuman.destinationY );
+			nDistance = point.distanceTo( otherHuman.destination );
 			
 			// Subtract their radius from the distance
 			nDistance = nDistance - otherHuman.radius;
 			
 			if(nearest > nDistance){
 				nearest = nDistance;
-				nAngle = angle( x, y, otherHuman.destinationX, otherHuman.destinationY );
+				nAngle = point.angleTo( otherHuman.destination );
 				nearestHumanId = otherHuman.id;
 			}
 		}
@@ -501,19 +544,73 @@ function xyStep( x, y, xIncAmount, yIncAmount ){
 
 
 /**
- * 
+ * Explore the potential wins of moving in a direction. Would you find a less claustrophic position.
+ *
+ * @param ignoreObjId ID of object to ignore
+ * @param {integer} x coordinate
+ * @param {integer} y coordinate
+ * @param {integer} distanceToBeat
+ *
+ * @return {object} Instance of Point representing the best position to move into
  */
-function surveyPath( ignoreObjId, x, y, nAngle, distanceToBeat ){
-
-	// Keep taking virtual steps in various directions, evaluating that position until a position with a better store than yours is found
+function surveyPaths( ignoreObjId, x, y, distanceToBeat ){
 
 	var improving;
 	var bestX = x; // By default the best position to be in is the one you are in (only move if it can be imrpoved upon)
 	var bestY = y;
 	var currentScore;
 
-	// Array to store the scores as each direction of travel is assessed
-	var scores = [ [1,2,3], [1,2,3], [1,2,3], [1,2,3], [1,2,3], [1,2,3], [1,2,3], [1,2,3] ]; 
+	// Array of the possible directions of travel to be assessed
+	var directions = [ { 
+							name: 'South',
+							xStep: 0,
+							yStep: 2,
+							distance: 0,
+							point: new Point()
+						},{ 
+							name: 'North',
+							xStep: 0,
+							yStep: -2,
+							distance: 0,
+							point: new Point()
+						},{ 
+							name: 'East',
+							xStep: 2,
+							yStep: 0,
+							distance: 0,
+							point: new Point()
+						},{ 
+							name: 'West',
+							xStep: -2,
+							yStep:  0,
+							distance: 0,
+							point: new Point()
+						},{ 
+							name: 'South-East',
+							xStep: 2,
+							yStep: 2,
+							distance: 0,
+							point: new Point()
+						},{ 
+							name: 'South-West',
+							xStep: -2,
+							yStep:  2,
+							distance: 0,
+							point: new Point()
+						},{ 
+							name: 'North-West',
+							xStep:  2,
+							yStep: -2,
+							distance: 0,
+							point: new Point()
+						},{ 
+							name: 'North-East',
+							xStep: -2,
+							yStep: -2,
+							distance: 0,
+							point: new Point()
+						}
+					 ]; 
 	
 	var testingX;
 	var testingY;
@@ -527,44 +624,38 @@ function surveyPath( ignoreObjId, x, y, nAngle, distanceToBeat ){
 		toleranceMargin = ignoreObj.radius + 10;
 	}
 	
-	// Iterate through 8 directions
-	for(var i = 0; i < 8; i++){
+	// Iterate through the possible directions
+	for(var i = 0, iLimit = directions.length; i < iLimit; i++){
 
-		switch(i){
-			case 0: xIncAmount =  0; yIncAmount =  2; break; // South
-			case 1: xIncAmount =  0; yIncAmount = -2; break; // North
-			case 2: xIncAmount =  2; yIncAmount =  0; break; // East
-			case 3: xIncAmount = -2; yIncAmount =  0; break; // West
-			case 4: xIncAmount =  2; yIncAmount =  2; break; // South-East
-			case 5: xIncAmount = -2; yIncAmount =  2; break; // South-West
-			case 6: xIncAmount =  2; yIncAmount = -2; break; // North-West
-			case 7: xIncAmount = -2; yIncAmount = -2; break; // North-East
-		}
+		xIncAmount = directions[i].xStep; 
+		yIncAmount = directions[i].yStep; 
 		
 		testingX = x;
 	 	testingY = y;
 		
 		improving = true;
 		
-		scores[i][0] = distanceToBeat; // Element 0 is distance to beat
+		directions[i].distance = distanceToBeat; 
 		
 		while( improving ){
 
-			nextStep = xyStep(testingX,testingY,xIncAmount,yIncAmount);
+			nextStep = xyStep( testingX, testingY, xIncAmount, yIncAmount );
 
-			evalNeighbour = assessPosition(ignoreObjId, nextStep.x, nextStep.y); // Evaluate this position, ignoring myself as an object
+			nearestNeighbour = assessPosition(ignoreObjId, new Point( nextStep.x, nextStep.y) ); // Evaluate this position, ignoring myself as an object
 
-			if(nextStep.x < toleranceMargin || nextStep.x > viewportWidth-toleranceMargin || nextStep.y < toleranceMargin || nextStep.y > viewportHeight-toleranceMargin)
+			// If this position is now outside boundaries, consider is no longer an improvement
+			if(nextStep.x < toleranceMargin || nextStep.x > viewportWidth-toleranceMargin || nextStep.y < toleranceMargin || nextStep.y > viewportHeight-toleranceMargin ){
 				improving = false;
+			}
 
-			if(scores[i][0] < evalNeighbour.distance){ // We are looking for the largest distance
+			if( directions[i].distance < nearestNeighbour.distance ){ // We are looking for the largest distance
 			
-				// This is a better position to be in
-				scores[i][0] = evalNeighbour.distance;
-				scores[i][1] = nextStep.x; // Position 1 is best X value
-				scores[i][2] = nextStep.y; // Position 2 is best Y value
+				// This is a better position to be in, so update our direction
+				directions[i].distance = nearestNeighbour.distance;
+				directions[i].point.x = nextStep.x; 
+				directions[i].point.y = nextStep.y; 
 
-				//console.log( "Better position found (" + evalNeighbour.distance + ") at  " + String(nextStep.x) + "," + String(nextStep.y) );
+				//console.log( "Better position found (" + nearestNeighbour.distance + ") at  " + String(nextStep.x) + "," + String(nextStep.y) );
 
 			} else {
 				improving = false;
@@ -577,14 +668,14 @@ function surveyPath( ignoreObjId, x, y, nAngle, distanceToBeat ){
 	
 	currentScore = distanceToBeat;
 
-	// Iterate over the 8 directions to work out which gives the biggest win
-	for( i = 0; i < 8; i++ ){
+	// Iterate over the directions again to work out which gives the biggest win
+	for( i = 0; i < iLimit; i++ ){
 
-		// The *1.1 is to stop the objects vibrating between 2 very close positions with no significant advantage to either position
-		if( (currentScore*1.1) < scores[i][0] ){ 
-			currentScore = scores[i][0];
-			bestX = scores[i][1];
-			bestY = scores[i][2];
+		// The *1.04 is to stop the objects vibrating between 2 very close positions with no significant advantage to either position
+		if( (currentScore * 1.04) < directions[i].distance ){ 
+			currentScore = directions[i].distance;
+			bestX = directions[i].point.x;
+			bestY = directions[i].point.y;
 		}
 	}
 	
@@ -597,7 +688,7 @@ function surveyPath( ignoreObjId, x, y, nAngle, distanceToBeat ){
 	if(bestY > viewportHeight-toleranceMargin)
 		bestY = viewportHeight-toleranceMargin;
 
-	return { x: bestX, y: bestY };
+	return new Point( bestX, bestY );
 }
 
 
@@ -787,47 +878,48 @@ function shadeFromHex( hexColorCode ){
 
 
 /**
- * Controls the population of pixels by populating or culling
+ * Controls the population of sequins (fka pixels) by populating or culling
  *
  */
 function controlPixels(){
 	required = requiredPixels();
 	
 	if(pixelcount < required)
-		populate();
+		populateSequins();
 	if(pixelcount > required)
-		cull();
+		cullSequins();
 }
 
 
 
-function populate(){
-	var wrapper = document.getElementById('wrapper');
+/**
+ * Produces the required number of sequins
+ */
+function populateSequins(){
+	var elemCurtain = document.getElementById('curtain');
 
-	var i = 0;
-	for(i=pixelcount; i < required; i++){
+	for( var i = pixelcount; i < required; i++ ){
 		// Shape Cell
 		var newdiv = document.createElement('div');
 	
 		newdiv.setAttribute('class', 'pixel');  // Mozilla version
 		newdiv.setAttribute('className', 'pixel'); // IE version
 		newdiv.id = 'div'+i;
-		wrapper.appendChild(newdiv);
+		elemCurtain.appendChild(newdiv);
 	}
 	
 	pixelcount = required;
-	//console.log("Populated to "+pixelcount);
 }
 
 
 
 /**
- * Removes the excess pixels, limiting it to a number 
+ * Removes the excess sequins (fka pixels), limiting it to a number 
  *
  */
-function cull(){
+function cullSequins(){
 
-	var wrapper = document.getElementById('wrapper');
+	var wrapper = document.getElementById('curtain');
 	
 	for(var i=required; i < pixelcount; i++){
 		var doomedDiv = document.getElementById('div'+i);
@@ -930,7 +1022,7 @@ document.addEventListener('click', function(){
  */
 (function(){
 
-	crowd = new Crowd();
+	crowd = new Crowd('crowd');
 
 	testForChange(); // Set size of window
 	controlPixels(); // Populate the empty window
