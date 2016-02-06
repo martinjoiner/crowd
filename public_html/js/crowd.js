@@ -464,7 +464,7 @@ function magnitude(xNum){
 function distance( point1, point2 ){
 	var xDifference = point1.x - point2.x;
 	var yDifference = point1.y - point2.y;
-	var hyp = Math.sqrt( Math.pow(xDifference, 2) + Math.pow(yDifference, 2) );
+	var hyp = Math.sqrt( (xDifference * xDifference) + (yDifference * yDifference) );
 	return Math.round(hyp);
 }
 
